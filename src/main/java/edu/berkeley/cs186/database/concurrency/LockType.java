@@ -1,5 +1,7 @@
 package edu.berkeley.cs186.database.concurrency;
 
+import java.util.*;
+
 /**
  * Utility methods to track the relationships between different lock types.
  */
@@ -21,9 +23,17 @@ public enum LockType {
         if (a == null || b == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
+        // DONE(proj4_part1): implement
 
-        return false;
+        Map<LockType, List<LockType>> compatMap = new HashMap<>();
+        compatMap.put(NL, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, SIX, X)));
+        compatMap.put(IS, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, SIX)));
+        compatMap.put(IX, new ArrayList<LockType>(Arrays.asList(NL, IS, IX)));
+        compatMap.put(S, new ArrayList<LockType>(Arrays.asList(NL, IS, S)));
+        compatMap.put(SIX, new ArrayList<LockType>(Arrays.asList(NL, IS)));
+        compatMap.put(X, new ArrayList<LockType>(Collections.singletonList(NL)));
+
+        return compatMap.get(a).contains(b);
     }
 
     /**
@@ -53,9 +63,17 @@ public enum LockType {
         if (parentLockType == null || childLockType == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
+        // DONE(proj4_part1): implement
 
-        return false;
+        Map<LockType, List<LockType>> parentMap = new HashMap<>();
+        parentMap.put(NL, new ArrayList<LockType>(Collections.singletonList(NL)));
+        parentMap.put(IS, new ArrayList<LockType>(Arrays.asList(NL, IS, S)));
+        parentMap.put(IX, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, SIX, X)));
+        parentMap.put(S, new ArrayList<LockType>(Arrays.asList(NL, IS)));
+        parentMap.put(SIX, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, X)));
+        parentMap.put(X, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, SIX, X)));
+
+        return parentMap.get(parentLockType).contains(childLockType);
     }
 
     /**
@@ -68,9 +86,17 @@ public enum LockType {
         if (required == null || substitute == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
+        // DONE(proj4_part1): implement
 
-        return false;
+        Map<LockType, List<LockType>> subMap = new HashMap<>();
+        subMap.put(NL, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, SIX, X)));
+        subMap.put(IS, new ArrayList<LockType>(Arrays.asList(IS, IX, S, SIX, X)));
+        subMap.put(IX, new ArrayList<LockType>(Arrays.asList(IX, SIX, X)));
+        subMap.put(S, new ArrayList<LockType>(Arrays.asList(S, SIX, X)));
+        subMap.put(SIX, new ArrayList<LockType>(Arrays.asList(SIX, X)));
+        subMap.put(X, new ArrayList<LockType>(Collections.singletonList(X)));
+
+        return subMap.get(required).contains(substitute);
     }
 
     /**
