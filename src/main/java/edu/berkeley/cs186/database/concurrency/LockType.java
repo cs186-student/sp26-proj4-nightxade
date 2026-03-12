@@ -69,9 +69,9 @@ public enum LockType {
         parentMap.put(NL, new ArrayList<LockType>(Collections.singletonList(NL)));
         parentMap.put(IS, new ArrayList<LockType>(Arrays.asList(NL, IS, S)));
         parentMap.put(IX, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, SIX, X)));
-        parentMap.put(S, new ArrayList<LockType>(Arrays.asList(NL, IS)));
-        parentMap.put(SIX, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, X)));
-        parentMap.put(X, new ArrayList<LockType>(Arrays.asList(NL, IS, IX, S, SIX, X)));
+        parentMap.put(S, new ArrayList<LockType>(Collections.singletonList(NL)));
+        parentMap.put(SIX, new ArrayList<LockType>(Arrays.asList(NL, IX, X)));
+        parentMap.put(X, new ArrayList<LockType>(Collections.singletonList(NL)));
 
         return parentMap.get(parentLockType).contains(childLockType);
     }

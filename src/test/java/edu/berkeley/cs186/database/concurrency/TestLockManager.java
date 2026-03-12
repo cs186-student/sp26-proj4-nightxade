@@ -574,6 +574,26 @@ public class TestLockManager {
 
     @Test
     @Category(PublicTests.class)
+    public void testSimplePromoteInvalid() {
+        /**
+         * Transaction 0 acquires an S lock on dbResource
+         * Transaction 0 promotes its S lock on dbResource to an X lock
+         */
+        DeterministicRunner runner = new DeterministicRunner(1);
+        try {
+            runner.run(0, () -> {
+                lockman.acquire(transactions[0], dbResource, LockType.X);
+                lockman.promote(transactions[0], dbResource, LockType.S);
+            });
+        } catch (InvalidLockException e) {
+            // do nothing
+        }
+
+        runner.joinAll();
+    }
+
+    @Test
+    @Category(PublicTests.class)
     public void testFIFOQueueLocks() {
         /**
          * Transaction 0 acquires an X lock on dbResource

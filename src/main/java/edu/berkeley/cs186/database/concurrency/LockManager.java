@@ -62,8 +62,7 @@ public class LockManager {
         public boolean checkCompatible(LockType lockType, long except) {
             // DONE(proj4_part1): implement
             return this.locks.stream().allMatch((lock) ->
-                            (lock.transactionNum == except &&
-                            LockType.substitutable(lockType, lock.lockType)) ||
+                            lock.transactionNum == except ||
                             LockType.compatible(lock.lockType, lockType));
         }
 
@@ -83,9 +82,7 @@ public class LockManager {
                     locks.set(i, lock);
 
                     // Update transactionLocks
-                    transactionLocks.get(lock.transactionNum);
-                    txnList.removeIf((l) -> l.name.equals(lock.name));
-                    txnList.add(lock);
+                    txnList.replaceAll((l) -> l.name.equals(lock.name) ? lock : l);
 
                     return;
                 }
@@ -136,8 +133,8 @@ public class LockManager {
                     break;
 
                 waitingQueue.pollFirst();
-                releaseLocks(req.releasedLocks);
                 this.grantOrUpdateLock(req.lock);
+                releaseLocks(req.releasedLocks);
                 req.transaction.unblock();
             }
         }
@@ -194,7 +191,6 @@ public class LockManager {
         for (Lock toRelease : locks) {
             ResourceEntry e = this.getResourceEntry(toRelease.name);
             e.releaseLock(toRelease);
-            transactionLocks.get(toRelease.transactionNum).removeIf((l) -> !l.name.equals(toRelease.name));
         }
     }
 
@@ -256,9 +252,13 @@ public class LockManager {
                                 transaction.getTransNum(), other, name
                         ));
 
+            // Remove lock from releaseList if it uses the same name to not remove the new, upgraded lock
+            if (other != null)
+                releaseList.remove(other);
+
             if (re.checkCompatible(lockType, transaction.getTransNum())) {
-                this.releaseLocks(releaseList);
                 re.grantOrUpdateLock(lock);
+                this.releaseLocks(releaseList);
             } else {
                 shouldBlock = true;
                 transaction.prepareBlock();
@@ -371,10 +371,6 @@ public class LockManager {
         // DONE(proj4_part1): implement
         // You may modify any part of this method.
 
-        // "We do not allow promotions to SIX, those types of requests should go to acquireAndRelease."
-        if (newLockType == LockType.SIX)
-            return;
-
         boolean shouldBlock = false;
         synchronized (this) {
             List<Lock> txnList = this.getTxnList(transaction.getTransNum());
@@ -398,6 +394,14 @@ public class LockManager {
                         String.format(
                                 "promote: Transaction %d already holds an %s lock on resource %s",
                                 transaction.getTransNum(), other, name
+                        ));
+
+            // "We do not allow promotions to SIX, those types of requests should go to acquireAndRelease."
+            if (newLockType == LockType.SIX)
+                throw new InvalidLockException(
+                        String.format(
+                                "promote: Transaction %d cannot not promote lock type SIX on resource %s",
+                                transaction.getTransNum(), name
                         ));
 
             if (!LockType.substitutable(newLockType, oldLock.lockType))
