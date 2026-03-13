@@ -42,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Phaser;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 /**
  * Database objects keeps track of transactions, tables, and indices
@@ -934,7 +935,19 @@ public class Database implements AutoCloseable {
         @Override
         public void close() {
             try {
-                // TODO(proj4_part2)
+                // DONE(proj4_part2)
+                LockManager lockman = getLockManager();
+                /* List of locks in descending order of acquisition time */
+                List<Lock> locks = lockman.getLocks(this).stream()
+                        .filter(l -> l.transactionNum == this.transNum)
+                        .collect(Collectors.toList());
+                Collections.reverse(locks);
+                for (Lock lock : locks) {
+                    ResourceName name = lock.name;
+                    LockContext ctx = LockContext.fromResourceName(lockman, name);
+                    ctx.release(this);
+                }
+
                 return;
             } catch (Exception e) {
                 // There's a chance an error message from your release phase
