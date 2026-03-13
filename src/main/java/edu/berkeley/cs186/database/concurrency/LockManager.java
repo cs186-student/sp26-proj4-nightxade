@@ -400,14 +400,14 @@ public class LockManager {
             if (newLockType == LockType.SIX)
                 throw new InvalidLockException(
                         String.format(
-                                "promote: Transaction %d cannot not promote lock type SIX on resource %s",
+                                "promote: Transaction %d cannot promote lock type SIX on resource %s",
                                 transaction.getTransNum(), name
                         ));
 
             if (!LockType.substitutable(newLockType, oldLock.lockType))
                 throw new InvalidLockException(
                         String.format(
-                                "promote: Transaction %d cannot not promote lock type %s to lock type %s on resource %s",
+                                "promote: Transaction %d cannot promote lock type %s to lock type %s on resource %s",
                                 transaction.getTransNum(), oldLock.lockType, newLockType, name
                         ));
 

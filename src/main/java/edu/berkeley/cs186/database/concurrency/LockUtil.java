@@ -51,6 +51,7 @@ public class LockUtil {
 
         if (explicitLockType == LockType.IX && requestType == LockType.S) {
             /* SIX promotion; note: SIX -> SIX already handled by substitution case */
+            /* No need for ensureAncestorContext bc explicit=IX => ancestor allows S alrdy */
             lockContext.promote(transaction, LockType.SIX);
         } else if (explicitLockType.isIntent()) {
             ensureAncestorContext(lockContext, requestType);
@@ -76,6 +77,8 @@ public class LockUtil {
 
         LockType parentType = parentContext.getExplicitLockType(transaction);
         LockType desiredType = LockType.parentLock(childType); /* Only IS or IX */
+        if (desiredType == LockType.IX && parentType == LockType.S) /* SIX */
+            desiredType = LockType.SIX;
         ensureAncestorContext(parentContext, desiredType);
         if (parentType == LockType.NL) {
             parentContext.acquire(transaction, desiredType);
