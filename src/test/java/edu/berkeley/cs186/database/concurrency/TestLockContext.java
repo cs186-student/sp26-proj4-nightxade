@@ -59,6 +59,70 @@ public class TestLockContext {
     }
 
     @Test
+    public void testPromoteSIXSaturation() {
+        LockContext tableContext = dbLockContext.childContext("table1");
+        TransactionContext t1 = transactions[1];
+        dbLockContext.acquire(t1, LockType.IX);
+        tableContext.acquire(t1, LockType.IS);
+        pageLockContext.acquire(t1, LockType.S);
+        dbLockContext.promote(t1, LockType.SIX);
+        assertEquals(0, dbLockContext.getNumChildren(t1));
+        assertEquals(0, tableLockContext.getNumChildren(t1));
+    }
+
+    @Test
+    public void testPromoteTable() {
+        LockContext tableContext = dbLockContext.childContext("table1");
+        TransactionContext t1 = transactions[1];
+        dbLockContext.acquire(t1, LockType.IX);
+        tableContext.acquire(t1, LockType.IS);
+        pageLockContext.acquire(t1, LockType.S);
+        tableLockContext.promote(t1, LockType.IX);
+        assertEquals(1, dbLockContext.getNumChildren(t1));
+        assertEquals(1, tableLockContext.getNumChildren(t1));
+    }
+
+    @Test
+    public void testPromoteSIXSIX() {
+        LockContext tableContext = dbLockContext.childContext("table1");
+        TransactionContext t1 = transactions[1];
+        dbLockContext.acquire(t1, LockType.SIX);
+        tableContext.acquire(t1, LockType.IX);
+        try {
+            tableLockContext.promote(t1, LockType.SIX);
+            fail(":(");
+        } catch (InvalidLockException e) {
+            // do nothing
+        }
+    }
+
+    @Test
+    public void testAcquireSIXSIX() {
+        LockContext tableContext = dbLockContext.childContext("table1");
+        TransactionContext t1 = transactions[1];
+        dbLockContext.acquire(t1, LockType.SIX);
+        try {
+            tableContext.acquire(t1, LockType.SIX);
+            fail(":(");
+        } catch (InvalidLockException e) {
+            // do nothing
+        }
+    }
+
+    @Test
+    public void testSkippedLock() {
+        LockContext tableContext = dbLockContext.childContext("table1");
+        TransactionContext t1 = transactions[1];
+        dbLockContext.acquire(t1, LockType.X);
+        try {
+            pageLockContext.acquire(t1, LockType.S);
+            fail(":(");
+        } catch (InvalidLockException e) {
+            // do nothing
+        }
+    }
+
+    @Test
     @Category(PublicTests.class)
     public void testSimpleAcquireFail() {
         dbLockContext.acquire(transactions[0], LockType.IS);

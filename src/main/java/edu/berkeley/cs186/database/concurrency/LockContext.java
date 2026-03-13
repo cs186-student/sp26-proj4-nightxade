@@ -112,11 +112,15 @@ public class LockContext {
             throw new InvalidLockException(String.format("acquire: t%d - attempted to acquire NL for resource %s", transaction.getTransNum(), name));
 
         if (parent != null) {
-            LockType parentEffectiveLockType = parent.getEffectiveLockType(transaction);
-            if (!LockType.canBeParentLock(parentEffectiveLockType, lockType))
+            LockType parentLockType = parent.getExplicitLockType(transaction);
+            if (!LockType.canBeParentLock(parentLockType, lockType))
                 throw new InvalidLockException(String.format("acquire: t%d - lock %s for resource %s is invalid for (effective) parent lock %s",
-                        transaction.getTransNum(), lockType, name, parentEffectiveLockType));
+                        transaction.getTransNum(), lockType, name, parentLockType));
         }
+
+        if ((lockType == LockType.IS || lockType == LockType.S) && hasSIXAncestor(transaction))
+            throw new InvalidLockException(String.format("acquire: t%d - lock %s for resource %s is invalid due to SIX ancestors",
+                    transaction.getTransNum(), lockType, name));
 
         lockman.acquire(transaction, name, lockType);
 
@@ -180,10 +184,10 @@ public class LockContext {
             throw new InvalidLockException(String.format("promote: t%d - attempted to promote to NL for resource %s", transaction.getTransNum(), name));
 
         if (parent != null) {
-            LockType parentEffectiveLockType = parent.getEffectiveLockType(transaction);
-            if (!LockType.canBeParentLock(parentEffectiveLockType, newLockType))
+            LockType parentLockType = parent.getExplicitLockType(transaction);
+            if (!LockType.canBeParentLock(parentLockType, newLockType))
                 throw new InvalidLockException(String.format("promote: t%d - lock %s for resource %s is invalid for (effective) parent lock %s",
-                        transaction.getTransNum(), newLockType, name, parentEffectiveLockType));
+                        transaction.getTransNum(), newLockType, name, parentLockType));
         }
 
         if (newLockType == LockType.SIX) {
@@ -194,11 +198,23 @@ public class LockContext {
             LockType oldLockType = lockman.getLockType(transaction, name);
             switch (oldLockType) {
                 case IS: case IX: case S:
+                    break;
+                default:
                     throw new InvalidLockException(String.format("promote: t%d - promoting to SIX from %s for resource %s is invalid",
                             transaction.getTransNum(), oldLockType, name));
             }
 
-            lockman.acquireAndRelease(transaction, name, newLockType, this.sisDescendants(transaction));
+            List<ResourceName> toReleaseResources = this.sisDescendants(transaction);
+            toReleaseResources.add(name);
+            lockman.acquireAndRelease(transaction, name, newLockType, toReleaseResources);
+
+            /* Update numChildLocks for all parents of released locks */
+            for (ResourceName r : toReleaseResources) {
+                if (r.parent() == null || r == name) /* Skip if top-level context or current resource (lock is promoted, not released) */
+                    continue;
+                LockContext ctx = LockContext.fromResourceName(lockman, r.parent());
+                ctx.numChildLocks.put(transaction.getTransNum(), ctx.numChildLocks.get(transaction.getTransNum()) - 1);
+            }
 
         } else {
             lockman.promote(transaction, name, newLockType);
@@ -267,11 +283,14 @@ public class LockContext {
         List<ResourceName> toReleaseResources = childLocks.stream().map(l -> l.name).collect(Collectors.toList());
         toReleaseResources.add(name); /* Should also release this resource's current lock and reset its numChildLocks count */
         lockman.acquireAndRelease(transaction, name, newLockType, toReleaseResources);
-        for (ResourceName r : toReleaseResources) {
-            lockman.context(r.toString()).numChildLocks.put(transaction.getTransNum(), 0);
-        }
 
-        return;
+        /* Update numChildLocks for all parents of released locks */
+        for (ResourceName r : toReleaseResources) {
+            if (r.parent() == null || r == name) /* Skip if top-level context or current resource (lock is escalated, not released) */
+                continue;
+            LockContext ctx = LockContext.fromResourceName(lockman, r.parent());
+            ctx.numChildLocks.put(transaction.getTransNum(), ctx.numChildLocks.get(transaction.getTransNum()) - 1);
+        }
     }
 
     /**
@@ -300,7 +319,7 @@ public class LockContext {
         LockType parentEffective = parent.getEffectiveLockType(transaction);
         switch (parentEffective) {
             case X: return LockType.X;
-            case S: case SIX: return LockType.S;
+            case S: case SIX: return explicit == LockType.X ? explicit : LockType.S;
             default: return explicit;
         }
     }

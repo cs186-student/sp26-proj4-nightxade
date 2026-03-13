@@ -46,4 +46,16 @@ public class LockUtil {
     }
 
     // TODO(proj4_part2) add any helper methods you want
+
+    private void ensureAncestorContext(LockContext lockContext, LockType requestType) {
+        TransactionContext transaction = TransactionContext.getTransaction();
+        LockContext parentContext = lockContext.parentContext();
+        if (parentContext == null)
+            return;
+
+        LockType parentType = parentContext.getExplicitLockType(transaction);
+
+
+        ensureAncestorContext(parentContext, requestType);
+    }
 }
