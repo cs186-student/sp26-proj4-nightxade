@@ -53,6 +53,30 @@ public class TestLockUtil {
     }
 
     @Test
+    @Category(PublicTests.class)
+    public void testComplexEscalate() {
+        /**
+         * We start by requesting S on page 4 like the previous three tests
+         */
+        lockManager.startLog();
+        LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.S);
+        assertEquals(Arrays.asList(
+                "acquire 0 database IS",
+                "acquire 0 database/table1 IS",
+                "acquire 0 database/table1/4 S"
+        ), lockManager.log);
+        lockManager.clearLog();
+
+        /**
+         * Escalating on the table should release IS(table1) and S(page 4) and
+         * acquire S(table1).
+         */
+        LockUtil.ensureSufficientLockHeld(tableContext, LockType.X);
+        assertEquals(LockType.X, tableContext.getExplicitLockType(transaction));
+        assertEquals(LockType.IX, dbContext.getExplicitLockType(transaction));
+    }
+
+    @Test
     @Category(SystemTests.class)
     public void testRequestNullTransaction() {
         /**
